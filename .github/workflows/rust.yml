@@ -17,3 +17,15 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Build
+      run: cargo build --release --verbose
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: build-binary
+        path: target/debug/osm-import-indexer
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: release-binary
+        path: target/release/osm-import-indexer
