@@ -6,6 +6,7 @@ mod protos;
 use protos::fileformat::{Blob, BlockHeader};
 use protos::osmformat::{HeaderBlock, PrimitiveBlock};
 
+use chrono::{DateTime, Utc, NaiveDateTime};
 use protobuf::{parse_from_bytes, Message};
 use std::convert::TryInto;
 use std::env;
@@ -14,7 +15,10 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
+
 use flate2::{Decompress, FlushDecompress};
+
+const NANO: f64 = 1000000000.0;
 
 fn main() {
     println!("--- Start ---");
@@ -34,9 +38,9 @@ fn start_import(path: &Path) {
             // Header
             get_block(&mut data_file);
             // Data
-            get_block(&mut data_file);   
+            get_block(&mut data_file);
         }
-        false => panic!("This is not a file")
+        false => panic!("This is not a file"),
     }
 }
 
@@ -86,10 +90,12 @@ fn get_block(file: &mut fs::File) {
 
     if header.get_field_type() == "OSMHeader" {
         let result = load_proto_message::<HeaderBlock>(uncompressed_blob_buffer);
-        println!("Header Block {:?}", result);
+        // println!("Header Block {:?}", result);
+        handle_header_block(result);
     } else {
-        let result = load_proto_message::<PrimitiveBlock>(uncompressed_blob_buffer);
-        println!("Data Block {:?}", result);
+        let _result = load_proto_message::<PrimitiveBlock>(uncompressed_blob_buffer);
+        // println!("Data Block {:?}", result);
+        println!("Data Block");
     }
 }
 
@@ -99,8 +105,34 @@ fn load_proto_message<T: Message>(data: Vec<u8>) -> T {
     header_block
 }
 
+fn handle_header_block(block: HeaderBlock) {
+    let bbox = block.get_bbox();
 
+    println!("Left {}", bbox.get_left() as f64 / NANO);
+    println!("Right {}", bbox.get_right() as f64 / NANO);
+    println!("Top {}", bbox.get_top() as f64 / NANO);
+    println!("Bottom {}", bbox.get_bottom() as f64 / NANO);
+    println!("Base URL {}", block.get_osmosis_replication_base_url());
+    println!(
+        "Sequence Number {}",
+        block.get_osmosis_replication_sequence_number()
+    );
+    println!("Replication Timestamp {}", get_datetime(block.get_osmosis_replication_timestamp()));
 
+    // let tstamp = DateTime::from_str(block.get_osmosis_replication_timestamp());
+    // let timestamp = Duration::from_secs(block.get_osmosis_replication_timestamp() as u64);
+    // println!("Converted Timestamp {:?}", timestamp.as_nanos());
+    // ("%Y-%m-%d][%H:%M:%S")
+}
+
+fn get_datetime(timestamp: i64) -> DateTime<Utc> {
+    let naive = NaiveDateTime::from_timestamp(timestamp, 0);
+    return DateTime::from_utc(naive, Utc);
+}
+
+fn handle_data_block(block: PrimitiveBlock) {
+    block.get_stringtable();
+}
 
 // ------- OLD CODE ---------
 fn visit_dirs(dir: &Path) -> io::Result<()> {
