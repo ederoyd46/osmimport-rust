@@ -8,24 +8,44 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
-    - name: Build
+    - name: Build Debug
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-    - name: Build
+    - name: Build Release
+      run: cargo build --release --verbose
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build Release
       run: cargo build --release --verbose
 
     - uses: actions/upload-artifact@v2
       with:
-        name: build-binary
-        path: target/debug/osm-import-indexer
+        name: osm-import-indexer
+        path: target/release/osm-import-indexer
+
+
+  documentation:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build Documentation
+      run: cargo doc --verbose
+
+    - uses: papeloto/action-zip@v1
+      with:
+        files: target/doc
+        dest: documentation.zip
 
     - uses: actions/upload-artifact@v2
       with:
-        name: release-binary
-        path: target/release/osm-import-indexer
+        name: documentation.zip
+        path: documentation.zip
