@@ -34,3 +34,32 @@ pub mod data_types {
         }
     }
 }
+
+// ------- OLD CODE ---------
+// fn visit_dirs(dir: &Path) -> io::Result<()> {
+//     if dir.is_dir() {
+//         for entry in fs::read_dir(dir)? {
+//             let entry = entry?;
+//             let path = entry.path();
+//             match path.is_dir() {
+//                 true => visit_dirs(&path)?,
+//                 false => println!("{}", index_file(entry)?.information()),
+//             }
+//         }
+//     }
+//     Ok(())
+// }
+
+// fn index_file(entry: fs::DirEntry) -> io::Result<Indexable<String>> {
+//     let file_name = String::from(entry.file_name().to_str().unwrap());
+//     let modified = entry.metadata()?.created()?;
+//     let index = Indexable {
+//         name: file_name,
+//         modified: modified,
+//         is_file: entry.file_type()?.is_file(),
+//         is_dir: entry.file_type()?.is_dir(),
+//         is_symlink: entry.file_type()?.is_symlink(),
+//     };
+
+//     return Ok(index);
+// }

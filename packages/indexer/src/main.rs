@@ -1,20 +1,19 @@
 #![allow(dead_code)]
 mod index;
-use index::data_types::Indexable;
 
 mod protos;
 use protos::fileformat::{Blob, BlockHeader};
-use protos::osmformat::{HeaderBlock, PrimitiveBlock};
+use protos::osmformat::{DenseNodes, HeaderBlock, PrimitiveBlock, StringTable};
 
-use chrono::{DateTime, Utc, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use protobuf::{parse_from_bytes, Message};
 use std::convert::TryInto;
 use std::env;
 use std::fs::{self};
-use std::io;
 use std::io::prelude::*;
+use std::ops::Add;
 use std::path::Path;
-
+use std::str;
 
 use flate2::{Decompress, FlushDecompress};
 
@@ -27,7 +26,6 @@ fn main() {
     let query_path = &args[1];
     let path = Path::new(query_path);
     start_import(path);
-    // visit_dirs(&path).unwrap();
     println!("--- End ---");
 }
 
@@ -36,15 +34,18 @@ fn start_import(path: &Path) {
         true => {
             let mut data_file = fs::File::open(&path).expect("File does not exist");
             // Header
-            get_block(&mut data_file);
+            get_block(&mut data_file).expect("Can't read header");
             // Data
-            get_block(&mut data_file);
+            for x in 0..1 {
+                get_block(&mut data_file).expect("No more data");
+                println!("{}", x);
+            }
         }
         false => panic!("This is not a file"),
     }
 }
 
-fn get_block(file: &mut fs::File) {
+fn get_block(file: &mut fs::File) -> Result<(), &str> {
     let mut header_size_buffer = [0; 4];
 
     file.read(&mut header_size_buffer)
@@ -90,13 +91,13 @@ fn get_block(file: &mut fs::File) {
 
     if header.get_field_type() == "OSMHeader" {
         let result = load_proto_message::<HeaderBlock>(uncompressed_blob_buffer);
-        // println!("Header Block {:?}", result);
         handle_header_block(result);
     } else {
-        let _result = load_proto_message::<PrimitiveBlock>(uncompressed_blob_buffer);
-        // println!("Data Block {:?}", result);
-        println!("Data Block");
+        let result = load_proto_message::<PrimitiveBlock>(uncompressed_blob_buffer);
+        handle_data_block(result);
     }
+
+    return Ok(());
 }
 
 fn load_proto_message<T: Message>(data: Vec<u8>) -> T {
@@ -117,48 +118,66 @@ fn handle_header_block(block: HeaderBlock) {
         "Sequence Number {}",
         block.get_osmosis_replication_sequence_number()
     );
-    println!("Replication Timestamp {}", get_datetime(block.get_osmosis_replication_timestamp()));
+    println!(
+        "Replication Timestamp {}",
+        get_datetime(block.get_osmosis_replication_timestamp())
+    );
+}
 
-    // let tstamp = DateTime::from_str(block.get_osmosis_replication_timestamp());
-    // let timestamp = Duration::from_secs(block.get_osmosis_replication_timestamp() as u64);
-    // println!("Converted Timestamp {:?}", timestamp.as_nanos());
-    // ("%Y-%m-%d][%H:%M:%S")
+fn handle_data_block(block: PrimitiveBlock) {
+    let string_table = convert_string_table(block.get_stringtable());
+    let granularity = block.get_granularity() as f64;
+    let date_granularity = block.get_date_granularity() as i64;
+    let primitive_groups = block.get_primitivegroup().into_iter();
+    println!("String Table = {:?}", string_table.len());
+    println!("Granularity = {:?}", granularity);
+    println!("Date Granularity = {:?}", date_granularity);
+    println!("Primitive Groups = {:?}", primitive_groups.len());
+    for group in primitive_groups {
+        handle_dense_nodes(group.get_dense());
+        // println!("Dense: {:?}", );
+
+        // println!("Nodes: {:?}", group.get_nodes());
+        // println!("Ways: {:?}", group.get_ways());
+        // println!("Relations: {:?}", group.get_relations());
+
+        // nodes: ::protobuf::RepeatedField<Node>,
+        // dense: ::protobuf::SingularPtrField<DenseNodes>,
+        // ways: ::protobuf::RepeatedField<Way>,
+        // relations: ::protobuf::RepeatedField<Relation>,
+        // changesets: ::protobuf::RepeatedField<ChangeSet>,
+    }
+}
+
+fn handle_dense_nodes(nodes: &DenseNodes) {
+    println!("Dense Info {:?}", nodes.get_id().len());
+    // let ids = delta_decode(0, nodes.get_id());
+    let lat = delta_decode(0, nodes.get_lat());
+    let lon = delta_decode(0, nodes.get_lon());
+    println!("lat {:?}", lat);
+    println!("long {:?}", lon);
+}
+
+fn delta_decode<T: Add<Output = T> + Copy>(seed: T, data: &[T]) -> Vec<T> {
+    let mut decoded: Vec<T> = vec![];
+    let mut running_total;
+    for e in data.into_iter() {
+        running_total = seed + *e;
+        decoded.push(running_total);
+    }
+
+    decoded
+}
+
+fn convert_string_table(string_table: &StringTable) -> Vec<&str> {
+    string_table
+        .get_s()
+        .into_iter()
+        .map(|x| str::from_utf8(x).unwrap())
+        .collect()
 }
 
 fn get_datetime(timestamp: i64) -> DateTime<Utc> {
     let naive = NaiveDateTime::from_timestamp(timestamp, 0);
     return DateTime::from_utc(naive, Utc);
-}
-
-fn handle_data_block(block: PrimitiveBlock) {
-    block.get_stringtable();
-}
-
-// ------- OLD CODE ---------
-fn visit_dirs(dir: &Path) -> io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            match path.is_dir() {
-                true => visit_dirs(&path)?,
-                false => println!("{}", index_file(entry)?.information()),
-            }
-        }
-    }
-    Ok(())
-}
-
-fn index_file(entry: fs::DirEntry) -> io::Result<Indexable<String>> {
-    let file_name = String::from(entry.file_name().to_str().unwrap());
-    let modified = entry.metadata()?.created()?;
-    let index = Indexable {
-        name: file_name,
-        modified: modified,
-        is_file: entry.file_type()?.is_file(),
-        is_dir: entry.file_type()?.is_dir(),
-        is_symlink: entry.file_type()?.is_symlink(),
-    };
-
-    return Ok(index);
 }
