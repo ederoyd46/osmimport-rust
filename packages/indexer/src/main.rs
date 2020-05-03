@@ -7,8 +7,10 @@ use protos::osmformat::{DenseNodes, HeaderBlock, PrimitiveBlock, StringTable};
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use protobuf::{parse_from_bytes, Message};
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
+use std::fmt::Display;
 use std::fs::{self};
 use std::io::prelude::*;
 use std::ops::Add;
@@ -129,12 +131,12 @@ fn handle_data_block(block: PrimitiveBlock) {
     let granularity = block.get_granularity() as f64;
     let date_granularity = block.get_date_granularity() as i64;
     let primitive_groups = block.get_primitivegroup().into_iter();
-    println!("String Table = {:?}", string_table.len());
+    println!("String Table = {:?}", &string_table.len());
     println!("Granularity = {:?}", granularity);
     println!("Date Granularity = {:?}", date_granularity);
     println!("Primitive Groups = {:?}", primitive_groups.len());
     for group in primitive_groups {
-        handle_dense_nodes(group.get_dense());
+        handle_dense_nodes(group.get_dense(), &string_table);
         // println!("Dense: {:?}", );
 
         // println!("Nodes: {:?}", group.get_nodes());
@@ -149,23 +151,42 @@ fn handle_data_block(block: PrimitiveBlock) {
     }
 }
 
-fn handle_dense_nodes(nodes: &DenseNodes) {
+fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>) {
     println!("Dense Info {:?}", nodes.get_id().len());
-    // let ids = delta_decode(0, nodes.get_id());
-    let lat = delta_decode(0, nodes.get_lat());
-    let lon = delta_decode(0, nodes.get_lon());
-    println!("lat {:?}", lat);
-    println!("long {:?}", lon);
+    let _ids = delta_decode(0, nodes.get_id());
+    let _uids = delta_decode(0, nodes.get_denseinfo().get_uid());
+    let _sids = delta_decode(0, nodes.get_denseinfo().get_user_sid());
+    let _timestamps = delta_decode(0, nodes.get_denseinfo().get_timestamp());
+    let _changesets = delta_decode(0, nodes.get_denseinfo().get_changeset());
+    let _latitudes = delta_decode(0, nodes.get_lat());
+    let _longitudes = delta_decode(0, nodes.get_lon());
+
+    let key_vals = build_key_vals(nodes.get_keys_vals(), &string_table);
+    println!("Key_Vals {:?}", key_vals);
 }
 
-fn delta_decode<T: Add<Output = T> + Copy>(seed: T, data: &[T]) -> Vec<T> {
+fn build_key_vals(key_vals: &[i32], string_table: &Vec<&str>) -> Vec<(String, String)> {
+    // let mut results = HashMap::new();
+    let mut results: Vec<(String, String)> = vec![];
+    for x in key_vals.chunks(2) {
+        let key = string_table.get(x[0] as usize).unwrap();
+        let val = string_table.get(x[1] as usize).unwrap();
+        // results.insert(String::from(*key), String::from(*val));
+        results.push((String::from(*key), String::from(*val)));
+    }
+    results
+}
+
+fn delta_decode<T>(seed: T, data: &[T]) -> Vec<T>
+where
+    T: Add<Output = T> + Copy + Display,
+{
     let mut decoded: Vec<T> = vec![];
-    let mut running_total;
+    let mut running_total = seed;
     for e in data.into_iter() {
-        running_total = seed + *e;
+        running_total = running_total + *e;
         decoded.push(running_total);
     }
-
     decoded
 }
 
