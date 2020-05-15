@@ -136,7 +136,7 @@ fn handle_data_block(block: PrimitiveBlock) {
     println!("Date Granularity = {:?}", date_granularity);
     println!("Primitive Groups = {:?}", primitive_groups.len());
     for group in primitive_groups {
-        handle_dense_nodes(group.get_dense(), &string_table);
+        handle_dense_nodes(group.get_dense(), &string_table, granularity);
         // println!("Dense: {:?}", );
 
         // println!("Nodes: {:?}", group.get_nodes());
@@ -151,28 +151,67 @@ fn handle_data_block(block: PrimitiveBlock) {
     }
 }
 
-fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>) {
-    println!("Dense Info {:?}", nodes.get_id().len());
-    let _ids = delta_decode(0, nodes.get_id());
-    let _uids = delta_decode(0, nodes.get_denseinfo().get_uid());
-    let _sids = delta_decode(0, nodes.get_denseinfo().get_user_sid());
-    let _timestamps = delta_decode(0, nodes.get_denseinfo().get_timestamp());
-    let _changesets = delta_decode(0, nodes.get_denseinfo().get_changeset());
-    let _latitudes = delta_decode(0, nodes.get_lat());
-    let _longitudes = delta_decode(0, nodes.get_lon());
-
-    let key_vals = build_key_vals(nodes.get_keys_vals(), &string_table);
-    println!("Key_Vals {:?}", key_vals);
+#[derive(Debug, Clone)]
+struct Node {
+    id: i64,
+    latitude: f64,
+    longitude: f64,
+    timestamp: DateTime<Utc>,
+    changeset: i64,
+    tags: Vec<Tag>,
 }
 
-fn build_key_vals(key_vals: &[i32], string_table: &Vec<&str>) -> Vec<(String, String)> {
-    // let mut results = HashMap::new();
-    let mut results: Vec<(String, String)> = vec![];
-    for x in key_vals.chunks(2) {
-        let key = string_table.get(x[0] as usize).unwrap();
-        let val = string_table.get(x[1] as usize).unwrap();
-        // results.insert(String::from(*key), String::from(*val));
-        results.push((String::from(*key), String::from(*val)));
+#[derive(Debug, Clone)]
+struct Tag {
+    key: String,
+    val: String,
+}
+
+fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity: f64) {
+    let size = nodes.get_id().len();
+    let ids = delta_decode(0, nodes.get_id());
+    let timestamps = delta_decode(0, nodes.get_denseinfo().get_timestamp());
+    let changesets = delta_decode(0, nodes.get_denseinfo().get_changeset());
+    let latitudes = delta_decode(0, nodes.get_lat());
+    let longitudes = delta_decode(0, nodes.get_lon());
+    let tags = build_key_vals(nodes.get_keys_vals(), &string_table);
+
+    for i in 0..size {
+        let node = Node {
+            id: ids[i],
+            latitude: calculate_degrees(latitudes[i], granularity),
+            longitude: calculate_degrees(longitudes[i], granularity),
+            timestamp: get_datetime(timestamps[i]),
+            changeset: changesets[i],
+            tags: tags[i].clone(),
+        };
+        println!("{:?}", node);
+    }
+}
+
+fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
+    return (coordinate as f64 * granularity) / NANO;
+}
+
+fn build_key_vals(mixed_key_vals: &[i32], string_table: &Vec<&str>) -> Vec<Vec<Tag>> {
+    let mut results: Vec<Vec<Tag>> = Vec::new();
+    let mut itr = mixed_key_vals.to_vec().into_iter();
+    let mut current: Vec<Tag> = Vec::new();
+    loop {
+        match itr.next() {
+            Some(key) => {
+                if key == 0 {
+                    results.push(current.clone()); //0 marks the end of the previous list
+                    current = Vec::new();
+                } else {
+                    current.push(Tag {
+                        key: String::from(string_table[key as usize]),
+                        val: String::from(string_table[itr.next().unwrap() as usize]),
+                    });
+                }
+            }
+            None => break,
+        }
     }
     results
 }
