@@ -38,9 +38,8 @@ fn start_import(path: &Path) {
             // Header
             get_block(&mut data_file).expect("Can't read header");
             // Data
-            for x in 0..1 {
+            for _x in 0..1 {
                 get_block(&mut data_file).expect("No more data");
-                println!("{}", x);
             }
         }
         false => panic!("This is not a file"),
@@ -158,7 +157,7 @@ struct Node {
     longitude: f64,
     timestamp: DateTime<Utc>,
     changeset: i64,
-    tags: Vec<Tag>,
+    tags: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -193,21 +192,24 @@ fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
     return (coordinate as f64 * granularity) / NANO;
 }
 
-fn build_key_vals(mixed_key_vals: &[i32], string_table: &Vec<&str>) -> Vec<Vec<Tag>> {
-    let mut results: Vec<Vec<Tag>> = Vec::new();
+fn build_key_vals(
+    mixed_key_vals: &[i32],
+    string_table: &Vec<&str>,
+) -> Vec<HashMap<String, String>> {
+    let mut results: Vec<HashMap<String, String>> = Vec::new();
     let mut itr = mixed_key_vals.to_vec().into_iter();
-    let mut current: Vec<Tag> = Vec::new();
+    let mut current: HashMap<String, String> = HashMap::new();
     loop {
         match itr.next() {
             Some(key) => {
                 if key == 0 {
-                    results.push(current.clone()); //0 marks the end of the previous list
-                    current = Vec::new();
+                    results.push(current.clone()); // 0 marks the end of the previous list
+                    current = HashMap::new();
                 } else {
-                    current.push(Tag {
-                        key: String::from(string_table[key as usize]),
-                        val: String::from(string_table[itr.next().unwrap() as usize]),
-                    });
+                    current.insert(
+                        String::from(string_table[key as usize]),
+                        String::from(string_table[itr.next().unwrap() as usize]),
+                    );
                 }
             }
             None => break,
