@@ -17,8 +17,6 @@ where
     decoded
 }
 
-
-
 pub fn get_datetime(timestamp: i64) -> DateTime<Utc> {
     let naive = NaiveDateTime::from_timestamp(timestamp, 0);
     return DateTime::from_utc(naive, Utc);
@@ -28,3 +26,10 @@ pub fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
     return (coordinate as f64 * granularity) / NANO;
 }
 
+
+
+
+#[test]
+fn it_should_calculate_correct_degrees() {
+    assert_eq!(calculate_degrees(10000000, 100.0), 1.0);
+}
