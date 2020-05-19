@@ -1,25 +1,23 @@
 #![allow(dead_code)]
-mod index;
-
 mod protos;
+mod types;
+mod utils;
+
 use protos::fileformat::{Blob, BlockHeader};
 use protos::osmformat::{DenseNodes, HeaderBlock, PrimitiveBlock, StringTable};
+use types::Node;
+use utils::{calculate_degrees, delta_decode, get_datetime, NANO};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
 use protobuf::{parse_from_bytes, Message};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
-use std::fmt::Display;
 use std::fs::{self};
 use std::io::prelude::*;
-use std::ops::Add;
 use std::path::Path;
 use std::str;
 
 use flate2::{Decompress, FlushDecompress};
-
-const NANO: f64 = 1000000000.0;
 
 fn main() {
     println!("--- Start ---");
@@ -150,22 +148,6 @@ fn handle_data_block(block: PrimitiveBlock) {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Node {
-    id: i64,
-    latitude: f64,
-    longitude: f64,
-    timestamp: DateTime<Utc>,
-    changeset: i64,
-    tags: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone)]
-struct Tag {
-    key: String,
-    val: String,
-}
-
 fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity: f64) {
     let size = nodes.get_id().len();
     let ids = delta_decode(0, nodes.get_id());
@@ -186,10 +168,6 @@ fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity:
         };
         println!("{:?}", node);
     }
-}
-
-fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
-    return (coordinate as f64 * granularity) / NANO;
 }
 
 fn build_key_vals(
@@ -218,28 +196,10 @@ fn build_key_vals(
     results
 }
 
-fn delta_decode<T>(seed: T, data: &[T]) -> Vec<T>
-where
-    T: Add<Output = T> + Copy + Display,
-{
-    let mut decoded: Vec<T> = vec![];
-    let mut running_total = seed;
-    for e in data.into_iter() {
-        running_total = running_total + *e;
-        decoded.push(running_total);
-    }
-    decoded
-}
-
 fn convert_string_table(string_table: &StringTable) -> Vec<&str> {
     string_table
         .get_s()
         .into_iter()
         .map(|x| str::from_utf8(x).unwrap())
         .collect()
-}
-
-fn get_datetime(timestamp: i64) -> DateTime<Utc> {
-    let naive = NaiveDateTime::from_timestamp(timestamp, 0);
-    return DateTime::from_utc(naive, Utc);
 }
