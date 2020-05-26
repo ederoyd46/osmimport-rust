@@ -26,9 +26,6 @@ pub fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
     return (coordinate as f64 * granularity) / NANO;
 }
 
-
-
-
 #[test]
 fn it_should_calculate_correct_degrees() {
     assert_eq!(calculate_degrees(10000000, 100.0), 1.0);

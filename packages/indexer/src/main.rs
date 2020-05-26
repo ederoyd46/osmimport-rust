@@ -133,8 +133,15 @@ fn handle_data_block(block: PrimitiveBlock) {
     println!("Date Granularity = {:?}", date_granularity);
     println!("Primitive Groups = {:?}", primitive_groups.len());
     for group in primitive_groups {
-        handle_dense_nodes(group.get_dense(), &string_table, granularity);
-        // println!("Dense: {:?}", );
+        let nodes = handle_dense_nodes(group.get_dense(), &string_table, granularity);
+        let place_nodes: Vec<&Node> = nodes
+            .iter()
+            .filter(|n| n.tags.contains_key("place") && n.tags.contains_key("name"))
+            .collect();
+        println!("filtered {:#?}", place_nodes);
+
+
+
 
         // println!("Nodes: {:?}", group.get_nodes());
         // println!("Ways: {:?}", group.get_ways());
@@ -148,11 +155,12 @@ fn handle_data_block(block: PrimitiveBlock) {
     }
 }
 
-fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity: f64) {
+fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity: f64) -> Vec<Node> {
+    let mut result: Vec<Node> = vec![];
+
     let size = nodes.get_id().len();
     let ids = delta_decode(0, nodes.get_id());
     let timestamps = delta_decode(0, nodes.get_denseinfo().get_timestamp());
-    let changesets = delta_decode(0, nodes.get_denseinfo().get_changeset());
     let latitudes = delta_decode(0, nodes.get_lat());
     let longitudes = delta_decode(0, nodes.get_lon());
     let tags = build_key_vals(nodes.get_keys_vals(), &string_table);
@@ -163,11 +171,15 @@ fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity:
             latitude: calculate_degrees(latitudes[i], granularity),
             longitude: calculate_degrees(longitudes[i], granularity),
             timestamp: get_datetime(timestamps[i]),
-            changeset: changesets[i],
             tags: tags[i].clone(),
         };
-        println!("{:?}", node);
+
+        if node.tags.len() > 0 {
+            result.push(node);
+        }
     }
+
+    result
 }
 
 fn build_key_vals(

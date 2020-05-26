@@ -7,6 +7,5 @@ pub struct Node {
     pub latitude: f64,
     pub longitude: f64,
     pub timestamp: DateTime<Utc>,
-    pub changeset: i64,
     pub tags: HashMap<String, String>,
 }
