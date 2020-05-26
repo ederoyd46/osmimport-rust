@@ -51,6 +51,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "geojson"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2b6970b36b77807a4ea232fcbc13b29026eab7c7e906500446c1e03d16f43af"
+dependencies = [
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "itoa"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8b7a7c0c47db5545ed3fef7468ee7bb5b74691498139e4b3f6a20685dc6dd8e"
+
+[[package]]
 name = "libc"
 version = "0.2.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -90,8 +107,10 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "flate2",
+ "geojson",
  "protobuf",
  "protobuf-codegen-pure",
+ "serde_json",
 ]
 
 [[package]]
@@ -117,6 +136,29 @@ checksum = "2d1a4febc73bf0cada1d77c459a0c8e5973179f1cfd5b0f1ab789d45b17b6440"
 dependencies = [
  "protobuf",
  "protobuf-codegen",
+]
+
+[[package]]
+name = "ryu"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
+
+[[package]]
+name = "serde"
+version = "1.0.110"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99e7b308464d16b56eba9964e4972a3eee817760ab60d88c3f86e1fecb08204c"
+
+[[package]]
+name = "serde_json"
+version = "1.0.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "993948e75b189211a9b31a7528f950c6adc21f9720b6438ff80a7fa2f864cea2"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]

@@ -8,11 +8,13 @@ use protos::osmformat::{DenseNodes, HeaderBlock, PrimitiveBlock, StringTable};
 use types::Node;
 use utils::{calculate_degrees, delta_decode, get_datetime, NANO};
 
+use geojson::{Feature, GeoJson, Geometry, Value};
 use protobuf::{parse_from_bytes, Message};
+use serde_json::{to_value, Map};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
-use std::fs::{self};
+use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
@@ -32,11 +34,11 @@ fn main() {
 fn start_import(path: &Path) {
     match path.is_file() {
         true => {
-            let mut data_file = fs::File::open(&path).expect("File does not exist");
+            let mut data_file = File::open(&path).expect("File does not exist");
             // Header
             get_block(&mut data_file).expect("Can't read header");
             // Data
-            for _x in 0..1 {
+            for _x in 0.. {
                 get_block(&mut data_file).expect("No more data");
             }
         }
@@ -44,7 +46,7 @@ fn start_import(path: &Path) {
     }
 }
 
-fn get_block(file: &mut fs::File) -> Result<(), &str> {
+fn get_block(file: &mut File) -> Result<(), &str> {
     let mut header_size_buffer = [0; 4];
 
     file.read(&mut header_size_buffer)
@@ -138,10 +140,8 @@ fn handle_data_block(block: PrimitiveBlock) {
             .iter()
             .filter(|n| n.tags.contains_key("place") && n.tags.contains_key("name"))
             .collect();
-        println!("filtered {:#?}", place_nodes);
-
-
-
+        // println!("filtered {:#?}", place_nodes);
+        write_geo_json(place_nodes);
 
         // println!("Nodes: {:?}", group.get_nodes());
         // println!("Ways: {:?}", group.get_ways());
@@ -214,4 +214,52 @@ fn convert_string_table(string_table: &StringTable) -> Vec<&str> {
         .into_iter()
         .map(|x| str::from_utf8(x).unwrap())
         .collect()
+}
+
+fn write_geo_json(nodes: Vec<&Node>) {
+    // let path = Path::new("/tmp/geo_json.json");
+    // let mut file = match File::create(&path) {
+    //     Err(why) => panic!("couldn't create {}: {}", path.display(), why),
+    //     Ok(file) => file,
+    // };
+    // let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
+    //     Err(why) => panic!("couldn't create {}: {}", path.display(), why),
+    //     Ok(file) => file,
+    // };
+    // file.write("[".as_bytes()).expect("Could not write to file");
+    for node in nodes {
+        let place = node.tags.get("place").unwrap();
+        let name = node.tags.get("name").unwrap();
+        let path_str = format!("/tmp/{}-{}.json", place, name);
+        let path = Path::new(&path_str);
+
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't create {}: {}", path.display(), why),
+            Ok(file) => file,
+        };
+
+        let mut properties = Map::new();
+        for i in &node.tags {
+            properties.insert(String::from(i.0), to_value(i.1).unwrap());
+        }
+
+        let geojson = GeoJson::Feature(Feature {
+            bbox: None,
+            geometry: Some(Geometry::new(Value::Point(vec![
+                node.longitude,
+                node.latitude,
+            ]))),
+            id: None,
+            properties: Some(properties),
+            foreign_members: None,
+        });
+        let geojson_string = geojson.to_string();
+        println!("{}", geojson_string);
+
+        file.write_all(geojson_string.as_bytes())
+            .expect("Could not write to file");
+
+    }
+    // file.write("]".as_bytes()).expect("Could not write to file");
+    // file.flush().unwrap();
 }
