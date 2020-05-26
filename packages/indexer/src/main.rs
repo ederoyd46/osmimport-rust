@@ -183,7 +183,7 @@ fn build_key_vals(
         match itr.next() {
             Some(key) => {
                 if key == 0 {
-                    results.push(current.clone()); // 0 marks the end of the previous list
+                    results.push(current); // 0 marks the end of the previous list
                     current = HashMap::new();
                 } else {
                     current.insert(
