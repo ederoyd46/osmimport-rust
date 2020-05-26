@@ -14,7 +14,7 @@ use serde_json::{to_value, Map};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
-use std::fs::{File, create_dir_all};
+use std::fs::{create_dir_all, File};
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
@@ -141,7 +141,7 @@ fn handle_data_block(block: PrimitiveBlock) {
             .filter(|n| n.tags.contains_key("place") && n.tags.contains_key("name"))
             .collect();
 
-            write_geo_json_files(place_nodes);
+        write_geo_json_files(place_nodes);
     }
 }
 
@@ -215,8 +215,7 @@ fn write_geo_json_files(nodes: Vec<&Node>) {
 fn create_file_structure(node: &Node) -> File {
     let place = clean_name(node.tags.get("place").unwrap());
     let name = clean_name(node.tags.get("name").unwrap());
-    
-    let path_str = format!("/tmp/index/{}", place);
+    let path_str = format!("index/{}", place);
     create_dir_all(&path_str).unwrap();
 
     let path_file_str = format!("{}/{}.json", path_str, name);
