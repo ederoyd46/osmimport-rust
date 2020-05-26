@@ -14,7 +14,7 @@ use serde_json::{to_value, Map};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::env;
-use std::fs::{File, OpenOptions};
+use std::fs::{File, create_dir_all};
 use std::io::prelude::*;
 use std::path::Path;
 use std::str;
@@ -140,18 +140,8 @@ fn handle_data_block(block: PrimitiveBlock) {
             .iter()
             .filter(|n| n.tags.contains_key("place") && n.tags.contains_key("name"))
             .collect();
-        // println!("filtered {:#?}", place_nodes);
-        write_geo_json(place_nodes);
 
-        // println!("Nodes: {:?}", group.get_nodes());
-        // println!("Ways: {:?}", group.get_ways());
-        // println!("Relations: {:?}", group.get_relations());
-
-        // nodes: ::protobuf::RepeatedField<Node>,
-        // dense: ::protobuf::SingularPtrField<DenseNodes>,
-        // ways: ::protobuf::RepeatedField<Way>,
-        // relations: ::protobuf::RepeatedField<Relation>,
-        // changesets: ::protobuf::RepeatedField<ChangeSet>,
+            write_geo_json_files(place_nodes);
     }
 }
 
@@ -216,50 +206,56 @@ fn convert_string_table(string_table: &StringTable) -> Vec<&str> {
         .collect()
 }
 
-fn write_geo_json(nodes: Vec<&Node>) {
-    // let path = Path::new("/tmp/geo_json.json");
-    // let mut file = match File::create(&path) {
-    //     Err(why) => panic!("couldn't create {}: {}", path.display(), why),
-    //     Ok(file) => file,
-    // };
-    // let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
-    //     Err(why) => panic!("couldn't create {}: {}", path.display(), why),
-    //     Ok(file) => file,
-    // };
-    // file.write("[".as_bytes()).expect("Could not write to file");
+fn write_geo_json_files(nodes: Vec<&Node>) {
     for node in nodes {
-        let place = node.tags.get("place").unwrap();
-        let name = node.tags.get("name").unwrap();
-        let path_str = format!("/tmp/{}-{}.json", place, name);
-        let path = Path::new(&path_str);
-
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't create {}: {}", path.display(), why),
-            Ok(file) => file,
-        };
-
-        let mut properties = Map::new();
-        for i in &node.tags {
-            properties.insert(String::from(i.0), to_value(i.1).unwrap());
-        }
-
-        let geojson = GeoJson::Feature(Feature {
-            bbox: None,
-            geometry: Some(Geometry::new(Value::Point(vec![
-                node.longitude,
-                node.latitude,
-            ]))),
-            id: None,
-            properties: Some(properties),
-            foreign_members: None,
-        });
-        let geojson_string = geojson.to_string();
-        println!("{}", geojson_string);
-
-        file.write_all(geojson_string.as_bytes())
-            .expect("Could not write to file");
-
+        write_geo_json_file(node);
     }
-    // file.write("]".as_bytes()).expect("Could not write to file");
-    // file.flush().unwrap();
+}
+
+fn create_file_structure(node: &Node) -> File {
+    let place = clean_name(node.tags.get("place").unwrap());
+    let name = clean_name(node.tags.get("name").unwrap());
+    
+    let path_str = format!("/tmp/index/{}", place);
+    create_dir_all(&path_str).unwrap();
+
+    let path_file_str = format!("{}/{}.json", path_str, name);
+    let path = Path::new(&path_file_str);
+
+    let file = match File::create(&path) {
+        Err(why) => panic!("couldn't create {}: {}", path.display(), why),
+        Ok(file) => file,
+    };
+
+    file
+}
+
+fn clean_name(name: &str) -> String {
+    name.trim()
+        .replace("/", "")
+        .replace('\\', "")
+        .replace(" ", "+")
+        .to_lowercase()
+}
+
+fn write_geo_json_file(node: &Node) {
+    let mut properties = Map::new();
+    for i in &node.tags {
+        properties.insert(String::from(i.0), to_value(i.1).unwrap());
+    }
+
+    let geojson = GeoJson::Feature(Feature {
+        bbox: None,
+        geometry: Some(Geometry::new(Value::Point(vec![
+            node.longitude,
+            node.latitude,
+        ]))),
+        id: None,
+        properties: Some(properties),
+        foreign_members: None,
+    });
+
+    let mut file = create_file_structure(node);
+    file.write_all(geojson.to_string().as_bytes())
+        .expect("Could not write to file");
 }
