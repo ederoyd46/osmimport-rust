@@ -14,4 +14,4 @@ geojson = "0.19.0"
 serde_json = "1.0.59"
 
 [build-dependencies]
-protobuf-codegen-pure = "2.14.0"
+protobuf-codegen-pure = "2.18.0"
