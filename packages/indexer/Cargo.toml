@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 chrono = "0.4.19"
 protobuf = '2.14.0'
-flate2 = "1.0.18"
+flate2 = "1.0.19"
 geojson = "0.20.0"
 serde_json = "1.0.59"
 
