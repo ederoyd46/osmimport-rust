@@ -102,9 +102,8 @@ fn get_block(file: &mut File) -> Result<(), &str> {
 }
 
 fn load_proto_message<T: Message>(data: Vec<u8>) -> T {
-    let header_block = T::parse_from_bytes(&data)
-        .expect(format!("Could not load decompressed block with data {:?}", data).as_str());
-    header_block
+    T::parse_from_bytes(&data)
+        .unwrap_or_else(|_| panic!("Could not load decompressed block with data {:?}", data))
 }
 
 fn handle_header_block(block: HeaderBlock) {
@@ -129,7 +128,7 @@ fn handle_data_block(block: PrimitiveBlock) {
     let string_table = convert_string_table(block.get_stringtable());
     let granularity = block.get_granularity() as f64;
     let date_granularity = block.get_date_granularity() as i64;
-    let primitive_groups = block.get_primitivegroup().into_iter();
+    let primitive_groups = block.get_primitivegroup().iter();
     println!("String Table = {:?}", &string_table.len());
     println!("Granularity = {:?}", granularity);
     println!("Date Granularity = {:?}", date_granularity);
@@ -145,7 +144,7 @@ fn handle_data_block(block: PrimitiveBlock) {
     }
 }
 
-fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity: f64) -> Vec<Node> {
+fn handle_dense_nodes(nodes: &DenseNodes, string_table: &[&str], granularity: f64) -> Vec<Node> {
     let mut result: Vec<Node> = vec![];
 
     let size = nodes.get_id().len();
@@ -153,7 +152,7 @@ fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity:
     let timestamps = delta_decode(0, nodes.get_denseinfo().get_timestamp());
     let latitudes = delta_decode(0, nodes.get_lat());
     let longitudes = delta_decode(0, nodes.get_lon());
-    let tags = build_key_vals(nodes.get_keys_vals(), &string_table);
+    let tags = build_key_vals(nodes.get_keys_vals(), string_table);
 
     for i in 0..size {
         let node = Node {
@@ -164,7 +163,7 @@ fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity:
             tags: tags[i].clone(),
         };
 
-        if node.tags.len() > 0 {
+        if !node.tags.is_empty() {
             result.push(node);
         }
     }
@@ -172,27 +171,19 @@ fn handle_dense_nodes(nodes: &DenseNodes, string_table: &Vec<&str>, granularity:
     result
 }
 
-fn build_key_vals(
-    mixed_key_vals: &[i32],
-    string_table: &Vec<&str>,
-) -> Vec<HashMap<String, String>> {
+fn build_key_vals(mixed_key_vals: &[i32], string_table: &[&str]) -> Vec<HashMap<String, String>> {
     let mut results: Vec<HashMap<String, String>> = Vec::new();
     let mut itr = mixed_key_vals.to_vec().into_iter();
     let mut current: HashMap<String, String> = HashMap::new();
-    loop {
-        match itr.next() {
-            Some(key) => {
-                if key == 0 {
-                    results.push(current); // 0 marks the end of the previous list
-                    current = HashMap::new();
-                } else {
-                    current.insert(
-                        String::from(string_table[key as usize]),
-                        String::from(string_table[itr.next().unwrap() as usize]),
-                    );
-                }
-            }
-            None => break,
+    while let Some(key) = itr.next() {
+        if key == 0 {
+            results.push(current); // 0 marks the end of the previous list
+            current = HashMap::new();
+        } else {
+            current.insert(
+                String::from(string_table[key as usize]),
+                String::from(string_table[itr.next().unwrap() as usize]),
+            );
         }
     }
     results
@@ -201,7 +192,7 @@ fn build_key_vals(
 fn convert_string_table(string_table: &StringTable) -> Vec<&str> {
     string_table
         .get_s()
-        .into_iter()
+        .iter()
         .map(|x| str::from_utf8(x).unwrap())
         .collect()
 }

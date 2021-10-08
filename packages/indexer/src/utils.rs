@@ -1,6 +1,6 @@
-use std::ops::Add;
-use std::fmt::Display;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use std::fmt::Display;
+use std::ops::Add;
 
 pub const NANO: f64 = 1000000000.0;
 
@@ -19,7 +19,7 @@ where
 
 pub fn get_datetime(timestamp: i64) -> DateTime<Utc> {
     let naive = NaiveDateTime::from_timestamp(timestamp, 0);
-     DateTime::from_utc(naive, Utc)
+    DateTime::from_utc(naive, Utc)
 }
 
 pub fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
