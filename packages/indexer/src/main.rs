@@ -9,7 +9,7 @@ use types::Node;
 use utils::{calculate_degrees, delta_decode, get_datetime, NANO};
 
 use geojson::{Feature, GeoJson, Geometry, Value};
-use protobuf::{parse_from_bytes, Message};
+use protobuf::Message;
 use serde_json::{to_value, Map};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -49,7 +49,7 @@ fn start_import(path: &Path) {
 fn get_block(file: &mut File) -> Result<(), &str> {
     let mut header_size_buffer = [0; 4];
 
-    file.read(&mut header_size_buffer)
+    file.read_exact(&mut header_size_buffer)
         .expect("Could not read file");
     let header_size = u32::from_be_bytes(header_size_buffer);
 
@@ -59,9 +59,9 @@ fn get_block(file: &mut File) -> Result<(), &str> {
             .try_into()
             .expect("Could not convert header size")
     ];
-    file.read(&mut header_buffer).unwrap();
+    file.read_exact(&mut header_buffer).unwrap();
 
-    let header = parse_from_bytes::<BlockHeader>(&header_buffer).expect("Header not valid");
+    let header = BlockHeader::parse_from_bytes(&header_buffer).expect("Header not valid");
 
     let mut blob_buffer = vec![
         0;
@@ -71,9 +71,9 @@ fn get_block(file: &mut File) -> Result<(), &str> {
             .expect("Could not convert buffer size")
     ];
 
-    file.read(&mut blob_buffer).unwrap();
+    file.read_exact(&mut blob_buffer).unwrap();
 
-    let blob_data = parse_from_bytes::<Blob>(&blob_buffer).expect("Blob Data not valid");
+    let blob_data = Blob::parse_from_bytes(&blob_buffer).expect("Blob Data not valid");
     let mut uncompressed_blob_buffer = vec![
         0;
         blob_data
@@ -98,11 +98,11 @@ fn get_block(file: &mut File) -> Result<(), &str> {
         handle_data_block(result);
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn load_proto_message<T: Message>(data: Vec<u8>) -> T {
-    let header_block = parse_from_bytes::<T>(&data)
+    let header_block = T::parse_from_bytes(&data)
         .expect(format!("Could not load decompressed block with data {:?}", data).as_str());
     header_block
 }

@@ -10,7 +10,7 @@ where
 {
     let mut decoded: Vec<T> = vec![];
     let mut running_total = seed;
-    for e in data.into_iter() {
+    for e in data.iter() {
         running_total = running_total + *e;
         decoded.push(running_total);
     }
@@ -19,11 +19,11 @@ where
 
 pub fn get_datetime(timestamp: i64) -> DateTime<Utc> {
     let naive = NaiveDateTime::from_timestamp(timestamp, 0);
-    return DateTime::from_utc(naive, Utc);
+     DateTime::from_utc(naive, Utc)
 }
 
 pub fn calculate_degrees(coordinate: i64, granularity: f64) -> f64 {
-    return (coordinate as f64 * granularity) / NANO;
+    (coordinate as f64 * granularity) / NANO
 }
 
 #[test]
